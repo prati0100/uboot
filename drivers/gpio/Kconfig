@@ -36,6 +36,15 @@ config TPL_DM_GPIO
 	  particular GPIOs that they provide. The uclass interface
 	  is defined in include/asm-generic/gpio.h.
 
+config GPIO_VALIDATE_DESC
+	bool "Check if GPIO descriptor is NULL and bail out if it is"
+	depends on DM_GPIO
+	default y
+	help
+	  If a GPIO is optional, the GPIO descriptor is NULL. In that
+	  case, calls should bail out instead of causing NULL pointer
+	  access.
+
 config GPIO_HOG
 	bool "Enable GPIO hog support"
 	depends on DM_GPIO

@@ -150,7 +150,7 @@ struct gpio_desc {
  */
 static inline bool dm_gpio_is_valid(const struct gpio_desc *desc)
 {
-	return desc->dev != NULL;
+	return desc && desc->dev;
 }
 
 /**
