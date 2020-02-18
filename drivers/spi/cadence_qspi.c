@@ -41,20 +41,22 @@ static int cadence_spi_write_speed(struct udevice *bus, uint hz)
 	return 0;
 }
 
-static int cadence_spi_read_id(void *reg_base, u8 len, u8 *idcode)
+static int cadence_spi_read_id(struct cadence_spi_platdata *plat, u8 len,
+			       u8 *idcode)
 {
 	struct spi_mem_op op = SPI_MEM_OP(SPI_MEM_OP_CMD(0x9F, 1),
 					  SPI_MEM_OP_NO_ADDR,
 					  SPI_MEM_OP_NO_DUMMY,
 					  SPI_MEM_OP_DATA_IN(len, idcode, 1));
 
-	return cadence_qspi_apb_command_read(reg_base, &op);
+	return cadence_qspi_apb_command_read(plat, &op);
 }
 
 /* Calibration sequence to determine the read data capture delay register */
 static int spi_calibration(struct udevice *bus, uint hz)
 {
 	struct cadence_spi_priv *priv = dev_get_priv(bus);
+	struct cadence_spi_platdata *plat = bus->platdata;
 	void *base = priv->regbase;
 	unsigned int idcode = 0, temp = 0;
 	int err = 0, i, range_lo = -1, range_hi = -1;
@@ -69,7 +71,7 @@ static int spi_calibration(struct udevice *bus, uint hz)
 	cadence_qspi_apb_controller_enable(base);
 
 	/* read the ID which will be our golden value */
-	err = cadence_spi_read_id(base, 3, (u8 *)&idcode);
+	err = cadence_spi_read_id(plat, 3, (u8 *)&idcode);
 	if (err) {
 		puts("SF: Calibration failed (read)\n");
 		return err;
@@ -88,7 +90,7 @@ static int spi_calibration(struct udevice *bus, uint hz)
 		cadence_qspi_apb_controller_enable(base);
 
 		/* issue a RDID to get the ID value */
-		err = cadence_spi_read_id(base, 3, (u8 *)&temp);
+		err = cadence_spi_read_id(plat, 3, (u8 *)&temp);
 		if (err) {
 			puts("SF: Calibration failed (read)\n");
 			return err;
@@ -267,10 +269,14 @@ static int cadence_spi_mem_exec_op(struct spi_slave *spi,
 
 	switch (mode) {
 	case CQSPI_STIG_READ:
-		err = cadence_qspi_apb_command_read(base, op);
+		err = cadence_qspi_apb_command_read_setup(plat, op);
+		if (!err)
+			err = cadence_qspi_apb_command_read(plat, op);
 		break;
 	case CQSPI_STIG_WRITE:
-		err = cadence_qspi_apb_command_write(base, op);
+		err = cadence_qspi_apb_command_write_setup(plat, op);
+		if (!err)
+			err = cadence_qspi_apb_command_write(plat, op);
 		break;
 	case CQSPI_READ:
 		err = cadence_qspi_apb_read_setup(plat, op);
@@ -288,6 +294,48 @@ static int cadence_spi_mem_exec_op(struct spi_slave *spi,
 	}
 
 	return err;
+}
+
+static bool cadence_spi_mem_supports_op(struct spi_slave *slave,
+					const struct spi_mem_op *op)
+{
+	bool all_true, all_false;
+	u8 buswidths[4];
+	int i;
+
+	all_true = op->cmd.dtr && op->addr.dtr && op->dummy.dtr &&
+		   op->data.dtr;
+	all_false = !op->cmd.dtr && !op->addr.dtr && !op->dummy.dtr &&
+		    !op->data.dtr;
+
+	/* Mixed DTR modes not supported. */
+	if (!(all_true || all_false))
+		return false;
+
+	/*
+	 * Only buswidths of 1, 2, 4, and 8 are supported. 0 is allowed in case
+	 * that phase does not exist.
+	 */
+	buswidths[0] = op->cmd.buswidth;
+	buswidths[1] = op->addr.buswidth;
+	buswidths[2] = op->dummy.buswidth;
+	buswidths[3] = op->data.buswidth;
+	for (i = 0; i < ARRAY_SIZE(buswidths); i++) {
+		if (!(buswidths[i] == 0 || buswidths[i] == 1 ||
+		      buswidths[i] == 2 || buswidths[i] == 4 ||
+		      buswidths[i] == 8))
+			return false;
+	}
+
+	/*
+	 * The exception to the above is the command phase. A non-existent
+	 * command phase means that it is an XIP command, which we do not
+	 * support.
+	 */
+	if (op->cmd.buswidth == 0)
+		return false;
+
+	return true;
 }
 
 static int cadence_spi_ofdata_to_platdata(struct udevice *bus)
@@ -346,6 +394,7 @@ static int cadence_spi_ofdata_to_platdata(struct udevice *bus)
 
 static const struct spi_controller_mem_ops cadence_spi_mem_ops = {
 	.exec_op = cadence_spi_mem_exec_op,
+	.supports_op = cadence_spi_mem_supports_op,
 };
 
 static const struct dm_spi_ops cadence_spi_ops = {
