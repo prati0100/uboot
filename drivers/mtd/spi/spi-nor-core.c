@@ -19,6 +19,7 @@
 #include <linux/log2.h>
 #include <linux/math64.h>
 #include <linux/sizes.h>
+#include <linux/bitfield.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/spi-nor.h>
@@ -56,6 +57,7 @@ struct sfdp_parameter_header {
 #define SFDP_BFPT_ID		0xff00	/* Basic Flash Parameter Table */
 #define SFDP_SECTOR_MAP_ID	0xff81	/* Sector Map Table */
 #define SFDP_SST_ID		0x01bf	/* Manufacturer specific Table */
+#define SFDP_PROFILE1_ID	0xff05	/* xSPI Profile 1.0 Table */
 
 #define SFDP_SIGNATURE		0x50444653U
 #define SFDP_JESD216_MAJOR	1
@@ -151,6 +153,11 @@ struct sfdp_header {
 #define BFPT_DWORD18_CMD_EXT_INV		(0x1UL << 29) /* Invert */
 #define BFPT_DWORD18_CMD_EXT_RES		(0x2UL << 29) /* Reserved */
 #define BFPT_DWORD18_CMD_EXT_16B		(0x3UL << 29) /* 16-bit opcode */
+
+/* xSPI Profile 1.0 table (from JESD216D.01). */
+#define PROFILE1_DWORD1_RD_FAST_CMD		GENMASK(15, 8)
+#define PROFILE1_DWORD1_RDSR_DUMMY		BIT(28)
+#define PROFILE1_DWORD1_RDSR_ADDR_BYTES		BIT(29)
 
 struct sfdp_bfpt {
 	u32	dwords[BFPT_DWORD_MAX];
@@ -2049,6 +2056,74 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 }
 
 /**
+ * spi_nor_parse_profile1() - parse the xSPI Profile 1.0 table
+ * @nor:		pointer to a 'struct spi_nor'
+ * @param_header:	pointer to the 'struct sfdp_parameter_header' describing
+ *			the 4-Byte Address Instruction Table length and version.
+ * @params:		pointer to the 'struct spi_nor_flash_parameter' to be.
+ *
+ * Return: 0 on success, -errno otherwise.
+ */
+static int spi_nor_parse_profile1(struct spi_nor *nor,
+				  const struct sfdp_parameter_header *profile1_header,
+				  struct spi_nor_flash_parameter *params)
+{
+	u32 *table, opcode, addr;
+	size_t len;
+	int ret, i;
+
+	len = profile1_header->length * sizeof(*table);
+	table = kmalloc(len, GFP_KERNEL);
+	if (!table)
+		return -ENOMEM;
+
+	addr = SFDP_PARAM_HEADER_PTP(profile1_header);
+	ret = spi_nor_read_sfdp(nor, addr, len, table);
+	if (ret)
+		goto out;
+
+	/* Fix endianness of the table DWORDs. */
+	for (i = 0; i < profile1_header->length; i++)
+		table[i] = le32_to_cpu(table[i]);
+
+	/* Get 8D-8D-8D fast read opcode and dummy cycles. */
+	opcode = FIELD_GET(PROFILE1_DWORD1_RD_FAST_CMD, table[0]);
+
+	/*
+	 * Update the fast read settings. We set the default dummy cycles to 20
+	 * here. Flashes can change this value if they need to when enabling
+	 * octal mode.
+	 */
+	params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
+	spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_8_8_8_DTR],
+				  0, 20, opcode,
+				  SNOR_PROTO_8_8_8_DTR);
+
+	/*
+	 * Since the flash supports xSPI DTR reads, it should also support DTR
+	 * Page Program opcodes.
+	 */
+	params->hwcaps.mask |= SNOR_HWCAPS_PP_8_8_8_DTR;
+
+	/*
+	 * Set the Read Status Register dummy cycles and dummy address bytes.
+	 */
+	if (table[0] & PROFILE1_DWORD1_RDSR_DUMMY)
+		params->rdsr_dummy = 8;
+	else
+		params->rdsr_dummy = 4;
+
+	if (table[0] & PROFILE1_DWORD1_RDSR_ADDR_BYTES)
+		params->rdsr_addr_nbytes = 4;
+	else
+		params->rdsr_addr_nbytes = 0;
+
+out:
+	kfree(table);
+	return ret;
+}
+
+/**
  * spi_nor_parse_microchip_sfdp() - parse the Microchip manufacturer specific
  * SFDP table.
  * @nor:		pointer to a 'struct spi_nor'.
@@ -2176,6 +2251,10 @@ static int spi_nor_parse_sfdp(struct spi_nor *nor,
 
 		case SFDP_SST_ID:
 			err = spi_nor_parse_microchip_sfdp(nor, param_header);
+			break;
+
+		case SFDP_PROFILE1_ID:
+			err = spi_nor_parse_profile1(nor, param_header, params);
 			break;
 
 		default:
@@ -2836,6 +2915,8 @@ int spi_nor_scan(struct spi_nor *nor)
 	if (ret)
 		return ret;
 
+	nor->rdsr_dummy = params.rdsr_dummy;
+	nor->rdsr_addr_nbytes = params.rdsr_addr_nbytes;
 	nor->name = mtd->name;
 	nor->size = mtd->size;
 	nor->erase_size = mtd->erasesize;
