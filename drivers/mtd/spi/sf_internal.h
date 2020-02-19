@@ -68,6 +68,9 @@ struct flash_info {
 #define USE_CLSR		BIT(14)	/* use CLSR command */
 #define SPI_NOR_HAS_SST26LOCK	BIT(15)	/* Flash supports lock/unlock via BPR */
 #define SPI_NOR_OCTAL_READ      BIT(16) /* Flash supports Octal Read */
+
+	/* Part specific fixup hooks. */
+	const struct spi_nor_fixups *fixups;
 };
 
 extern const struct flash_info spi_nor_ids[];
