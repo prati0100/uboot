@@ -368,15 +368,30 @@ static ssize_t spi_nor_write_data(struct spi_nor *nor, loff_t to, size_t len,
 static int read_sr(struct spi_nor *nor)
 {
 	int ret;
-	u8 val;
+	u8 val[2];
+	u8 addr_nbytes = nor->rdsr_addr_nbytes;
+	u8 dummy = nor->rdsr_dummy;
+	struct spi_mem_op op = SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDSR, 1),
+					  SPI_MEM_OP_ADDR(addr_nbytes, 0, 1),
+					  SPI_MEM_OP_DUMMY(dummy, 1),
+					  SPI_MEM_OP_DATA_IN(1, NULL, 1));
 
-	ret = nor->read_reg(nor, SPINOR_OP_RDSR, &val, 1);
+	spi_nor_setup_op(nor, &op, nor->reg_proto);
+
+	/*
+	 * We don't want to read only one byte in DTR mode. So, read 2 and then
+	 * discard the second byte.
+	 */
+	if (spi_nor_protocol_is_dtr(nor->reg_proto))
+		op.data.nbytes = 2;
+
+	ret = spi_nor_read_write_reg(nor, &op, val);
 	if (ret < 0) {
 		pr_debug("error %d reading SR\n", (int)ret);
 		return ret;
 	}
 
-	return val;
+	return *val;
 }
 
 /*
@@ -387,15 +402,31 @@ static int read_sr(struct spi_nor *nor)
 static int read_fsr(struct spi_nor *nor)
 {
 	int ret;
-	u8 val;
+	u8 val[2];
+	u8 addr_nbytes = nor->rdsr_addr_nbytes;
+	u8 dummy = nor->rdsr_dummy;
 
-	ret = nor->read_reg(nor, SPINOR_OP_RDFSR, &val, 1);
+	struct spi_mem_op op = SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDFSR, 1),
+					  SPI_MEM_OP_ADDR(addr_nbytes, 0, 1),
+					  SPI_MEM_OP_DUMMY(dummy, 1),
+					  SPI_MEM_OP_DATA_IN(1, NULL, 1));
+
+	spi_nor_setup_op(nor, &op, nor->reg_proto);
+
+	/*
+	 * We don't want to read only one byte in DTR mode. So, read 2 and then
+	 * discard the second byte.
+	 */
+	if (spi_nor_protocol_is_dtr(nor->reg_proto))
+		op.data.nbytes = 2;
+
+	ret = spi_nor_read_write_reg(nor, &op, val);
 	if (ret < 0) {
 		pr_debug("error %d reading FSR\n", ret);
 		return ret;
 	}
 
-	return val;
+	return *val;
 }
 
 /*
