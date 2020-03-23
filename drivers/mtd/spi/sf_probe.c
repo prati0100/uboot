@@ -153,6 +153,14 @@ int spi_flash_std_probe(struct udevice *dev)
 
 static int spi_flash_std_remove(struct udevice *dev)
 {
+	struct spi_flash *flash;
+	int ret;
+
+	flash = dev_get_uclass_priv(dev);
+	ret = spi_nor_remove(flash);
+	if (ret)
+		return ret;
+
 #if CONFIG_IS_ENABLED(SPI_FLASH_MTD)
 	spi_flash_mtd_unregister();
 #endif
@@ -179,6 +187,7 @@ U_BOOT_DRIVER(spi_flash_std) = {
 	.remove		= spi_flash_std_remove,
 	.priv_auto_alloc_size = sizeof(struct spi_flash),
 	.ops		= &spi_flash_std_ops,
+	.flags		= DM_FLAG_OS_PREPARE,
 };
 
 #endif /* CONFIG_DM_SPI_FLASH */

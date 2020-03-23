@@ -69,6 +69,7 @@ struct flash_info {
 #define SPI_NOR_HAS_SST26LOCK	BIT(15)	/* Flash supports lock/unlock via BPR */
 #define SPI_NOR_OCTAL_READ      BIT(16) /* Flash supports Octal Read */
 #define SPI_NOR_OCTAL_DTR_READ	BIT(17)	/* Flash supports Octal DTR Read */
+#define SPI_NOR_SOFT_RESET	BIT(18)	/* Flash supports soft reset command */
 
 	/* Part specific fixup hooks. */
 	const struct spi_nor_fixups *fixups;
