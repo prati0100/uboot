@@ -88,6 +88,17 @@ config SPI_FLASH_SFDP_SUPPORT
 	 SPI NOR flashes using Serial Flash Discoverable Parameters (SFDP)
 	 tables as per JESD216 standard.
 
+config SPI_FLASH_SOFT_RESET
+	bool "Software Reset support for SPI NOR flashes"
+	help
+	 Enable support for xSPI Software Reset. It will be used to switch
+	 from Octal DTR mode to legacy mode to allow detecting flashes that
+	 are handed to us in Octal DTR mode. It is expected that if the config
+	 is enabled the flash supports the Soft Reset sequence and is booted in
+	 Octal DTR mode. Do not enable this config on flashes that are not
+	 supposed to be handed to U-Boot in Octal DTR mode, even if they _do_
+	 support the Soft Reset sequence.
+
 config SPI_FLASH_BAR
 	bool "SPI flash Bank/Extended address register support"
 	help
