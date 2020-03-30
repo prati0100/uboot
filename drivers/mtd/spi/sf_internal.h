@@ -81,6 +81,10 @@ extern const struct flash_info spi_nor_ids[];
 extern struct spi_nor_fixups s28hs512t_fixups;
 #endif
 
+#ifdef CONFIG_SPI_FLASH_STMICRO
+extern struct spi_nor_fixups mt35xu512aba_fixups;
+#endif
+
 #define JEDEC_MFR(info)	((info)->id[0])
 #define JEDEC_ID(info)		(((info)->id[1]) << 8 | ((info)->id[2]))
 
