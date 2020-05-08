@@ -144,6 +144,7 @@
 			compatible = "mmio-mux";
 			#mux-control-cells = <1>;
 			mux-reg-masks = <0x4 0x2>; /* HBMC select */
+			u-boot,mux-autoprobe;
 		};
 
 		hbmc: hyperbus@47034000 {
