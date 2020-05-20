@@ -87,6 +87,7 @@ struct sfdp_header {
 
 /* The first version of JESB216 defined only 9 DWORDs. */
 #define BFPT_DWORD_MAX_JESD216			9
+#define BFPT_DWORD_MAX_JESD216B			16
 
 /* 1st DWORD. */
 #define BFPT_DWORD1_FAST_READ_1_1_2		BIT(16)
@@ -2033,7 +2034,7 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 	}
 
 	/* Stop here if not JESD216 rev A or later. */
-	if (bfpt_header->length < BFPT_DWORD_MAX)
+	if (bfpt_header->length == BFPT_DWORD_MAX_JESD216)
 		return 0;
 
 	/* Page size: this field specifies 'N' so the page size = 2^N bytes. */
@@ -2066,6 +2067,11 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 	default:
 		return -EINVAL;
 	}
+
+	/* Stop here if JESD216 rev B. */
+	if (bfpt_header->length == BFPT_DWORD_MAX_JESD216B)
+		return spi_nor_post_bfpt_fixups(nor, bfpt_header, &bfpt,
+						params);
 
 	/* 8D-8D-8D command extension. */
 	switch (bfpt.dwords[BFPT_DWORD(18)] & BFPT_DWORD18_CMD_EXT_MASK) {
