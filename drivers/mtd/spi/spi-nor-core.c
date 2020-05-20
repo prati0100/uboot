@@ -39,6 +39,8 @@
 
 #define DEFAULT_READY_WAIT_JIFFIES		(40UL * HZ)
 
+#define ROUND_UP_TO(x, y)	(((x) + (y) - 1) / (y) * (y))
+
 struct sfdp_parameter_header {
 	u8		id_lsb;
 	u8		minor;
@@ -159,6 +161,11 @@ struct sfdp_header {
 #define PROFILE1_DWORD1_RD_FAST_CMD		GENMASK(15, 8)
 #define PROFILE1_DWORD1_RDSR_DUMMY		BIT(28)
 #define PROFILE1_DWORD1_RDSR_ADDR_BYTES		BIT(29)
+#define PROFILE1_DWORD4_DUMMY_200MHZ		GENMASK(11, 7)
+#define PROFILE1_DWORD5_DUMMY_166MHZ		GENMASK(31, 27)
+#define PROFILE1_DWORD5_DUMMY_133MHZ		GENMASK(21, 17)
+#define PROFILE1_DWORD5_DUMMY_100MHZ		GENMASK(11, 7)
+#define PROFILE1_DUMMY_DEFAULT			20
 
 struct sfdp_bfpt {
 	u32	dwords[BFPT_DWORD_MAX];
@@ -2110,6 +2117,7 @@ static int spi_nor_parse_profile1(struct spi_nor *nor,
 	u32 *table, opcode, addr;
 	size_t len;
 	int ret, i;
+	u8 dummy;
 
 	len = profile1_header->length * sizeof(*table);
 	table = kmalloc(len, GFP_KERNEL);
@@ -2129,12 +2137,30 @@ static int spi_nor_parse_profile1(struct spi_nor *nor,
 	opcode = FIELD_GET(PROFILE1_DWORD1_RD_FAST_CMD, table[0]);
 
 	/*
-	 * Update the fast read settings. We set the default dummy cycles to 20
-	 * here. Flashes can change this value if they need to when enabling
-	 * octal mode.
+	 * We don't know what speed the controller is running at. Find the
+	 * dummy cycles for the fastest frequency the flash can run at to be
+	 * sure we are never short of dummy cycles. A value of 0 means the
+	 * frequency is not supported.
+	 *
+	 * Default to PROFILE1_DUMMY_DEFAULT if we don't find anything, and let
+	 * flashes set the correct value if needed in their fixup hooks.
 	 */
+	dummy = FIELD_GET(PROFILE1_DWORD4_DUMMY_200MHZ, table[3]);
+	if (!dummy)
+		dummy = FIELD_GET(PROFILE1_DWORD5_DUMMY_166MHZ, table[4]);
+	if (!dummy)
+		dummy = FIELD_GET(PROFILE1_DWORD5_DUMMY_133MHZ, table[4]);
+	if (!dummy)
+		dummy = FIELD_GET(PROFILE1_DWORD5_DUMMY_100MHZ, table[4]);
+	if (!dummy)
+		dummy = PROFILE1_DUMMY_DEFAULT;
+
+	/* Round up to an even value to avoid tripping controllers up. */
+	dummy = ROUND_UP_TO(dummy, 2);
+
+	/* Update the fast read settings. */
 	spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_8_8_8_DTR],
-				  0, 20, opcode,
+				  0, dummy, opcode,
 				  SNOR_PROTO_8_8_8_DTR);
 
 	/*
