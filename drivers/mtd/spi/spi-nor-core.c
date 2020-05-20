@@ -2133,16 +2133,9 @@ static int spi_nor_parse_profile1(struct spi_nor *nor,
 	 * here. Flashes can change this value if they need to when enabling
 	 * octal mode.
 	 */
-	params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
 	spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_8_8_8_DTR],
 				  0, 20, opcode,
 				  SNOR_PROTO_8_8_8_DTR);
-
-	/*
-	 * Since the flash supports xSPI DTR reads, it should also support DTR
-	 * Page Program opcodes.
-	 */
-	params->hwcaps.mask |= SNOR_HWCAPS_PP_8_8_8_DTR;
 
 	/*
 	 * Set the Read Status Register dummy cycles and dummy address bytes.
@@ -2392,6 +2385,13 @@ static int spi_nor_init_params(struct spi_nor *nor,
 		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_1_1_8],
 					  0, 8, SPINOR_OP_READ_1_1_8,
 					  SNOR_PROTO_1_1_8);
+	}
+
+	if (info->flags & SPI_NOR_OCTAL_DTR_READ) {
+		params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
+		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_8_8_8_DTR],
+					  0, 20, SPINOR_OP_READ_FAST,
+					  SNOR_PROTO_8_8_8_DTR);
 	}
 
 	/* Page Program settings. */
