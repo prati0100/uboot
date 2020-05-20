@@ -2042,7 +2042,8 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 
 	/* Stop here if not JESD216 rev A or later. */
 	if (bfpt_header->length == BFPT_DWORD_MAX_JESD216)
-		return 0;
+		return spi_nor_post_bfpt_fixups(nor, bfpt_header, &bfpt,
+						params);
 
 	/* Page size: this field specifies 'N' so the page size = 2^N bytes. */
 	params->page_size = bfpt.dwords[BFPT_DWORD(11)];
