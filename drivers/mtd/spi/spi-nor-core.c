@@ -2907,6 +2907,8 @@ static void s28hs512t_post_sfdp_fixup(struct spi_nor *nor,
 		params->reads[SNOR_CMD_READ_8_8_8_DTR].opcode =
 			SPINOR_OP_CYPRESS_RD_FAST;
 
+	params->hwcaps.mask |= SNOR_HWCAPS_PP_8_8_8_DTR;
+
 	/* This flash is also missing the 4-byte Page Program opcode bit. */
 	spi_nor_set_pp_settings(&params->page_programs[SNOR_CMD_PP],
 				SPINOR_OP_PP_4B, SNOR_PROTO_1_1_1);
