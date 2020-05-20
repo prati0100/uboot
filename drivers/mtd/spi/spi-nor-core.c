@@ -2780,27 +2780,27 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 
 #ifdef CONFIG_SPI_FLASH_SPANSION
 /**
- * spi_nor_cypress_octal_enable() - Enable octal DTR mode on Cypress flashes.
+ * spi_nor_cypress_octal_dtr_enable() - Enable octal DTR on Cypress flashes.
  * @nor:		pointer to a 'struct spi_nor'
  *
- * This also sets the memory access latency cycles to 20, which is the default
- * in the spi-nor framework.
+ * This also sets the memory access latency cycles to 24 to allow the flash to
+ * run at up to 200MHz.
  *
  * Return: 0 on success, -errno otherwise.
  */
-static int spi_nor_cypress_octal_enable(struct spi_nor *nor)
+static int spi_nor_cypress_octal_dtr_enable(struct spi_nor *nor)
 {
 	struct spi_mem_op op;
 	u8 buf;
 	u8 addr_width = 3;
 	int ret;
 
-	/* Use 20 dummy cycles for memory array reads. */
+	/* Use 24 dummy cycles for memory array reads. */
 	ret = write_enable(nor);
 	if (ret)
 		return ret;
 
-	buf = SPINOR_REG_CYPRESS_CFR2V_MEMLAT_8_20;
+	buf = SPINOR_REG_CYPRESS_CFR2V_MEMLAT_11_24;
 	op = (struct spi_mem_op)SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_WR_ANY_REG, 1),
 			SPI_MEM_OP_ADDR(addr_width, SPINOR_REG_CYPRESS_CFR2V, 1),
 			SPI_MEM_OP_NO_DUMMY,
@@ -2816,7 +2816,7 @@ static int spi_nor_cypress_octal_enable(struct spi_nor *nor)
 	if (ret)
 		return ret;
 
-	nor->read_dummy = 20;
+	nor->read_dummy = 24;
 
 	/* Set the octal and DTR enable bits. */
 	ret = write_enable(nor);
@@ -2892,7 +2892,7 @@ static int s28hs512t_setup(struct spi_nor *nor, const struct flash_info *info,
 
 static void s28hs512t_default_init(struct spi_nor *nor)
 {
-	nor->octal_dtr_enable = spi_nor_cypress_octal_enable;
+	nor->octal_dtr_enable = spi_nor_cypress_octal_dtr_enable;
 	nor->setup = s28hs512t_setup;
 }
 
