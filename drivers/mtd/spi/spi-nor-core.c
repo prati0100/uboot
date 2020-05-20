@@ -2604,7 +2604,14 @@ spi_nor_adjust_hwcaps(struct spi_nor *nor,
 	unsigned int cap;
 
 	/* Some modes are not supported yet. Mask them. */
-	*hwcaps &= ~SNOR_HWCAPS_UNSUPP;
+	*hwcaps &= ~SNOR_HWCAPS_X_X_X;
+
+	/*
+	 * If the reset line is broken, we do not want to enter a stateful
+	 * mode.
+	 */
+	if (nor->flags & SNOR_F_BROKEN_RESET)
+		*hwcaps &= ~(SNOR_HWCAPS_X_X_X | SNOR_HWCAPS_X_X_X_DTR);
 
 	for (cap = 0; cap < sizeof(*hwcaps) * BITS_PER_BYTE; cap++) {
 		int rdidx, ppidx;
