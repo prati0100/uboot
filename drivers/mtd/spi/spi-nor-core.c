@@ -3106,8 +3106,8 @@ static int spi_nor_octal_dtr_enable(struct spi_nor *nor)
 	if (!nor->octal_dtr_enable)
 		return 0;
 
-	if (!(nor->read_proto == SNOR_PROTO_8_8_8_DTR) &&
-	      nor->write_proto == SNOR_PROTO_8_8_8_DTR)
+	if (!(nor->read_proto == SNOR_PROTO_8_8_8_DTR &&
+	      nor->write_proto == SNOR_PROTO_8_8_8_DTR))
 		return 0;
 
 	ret = nor->octal_dtr_enable(nor);
