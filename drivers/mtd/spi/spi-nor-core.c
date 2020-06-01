@@ -2056,6 +2056,9 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 
 	/* Quad Enable Requirements. */
 	switch (bfpt.dwords[BFPT_DWORD(15)] & BFPT_DWORD15_QER_MASK) {
+	case BFPT_DWORD15_QER_NONE:
+		params->quad_enable = NULL;
+		break;
 #if defined(CONFIG_SPI_FLASH_SPANSION) || defined(CONFIG_SPI_FLASH_WINBOND)
 	case BFPT_DWORD15_QER_SR2_BIT1_BUGGY:
 	case BFPT_DWORD15_QER_SR2_BIT1_NO_RD:
@@ -2072,9 +2075,8 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 		params->quad_enable = spansion_read_cr_quad_enable;
 		break;
 #endif
-	case BFPT_DWORD15_QER_NONE:
 	default:
-		params->quad_enable = NULL;
+		dev_dbg(nor->dev, "BFPT QER reserved value used\n");
 		break;
 	}
 
@@ -3086,6 +3088,13 @@ static void mt35xu512aba_post_sfdp_fixup(struct spi_nor *nor,
 	nor->cmd_ext_type = SPI_NOR_EXT_REPEAT;
 	params->rdsr_dummy = 8;
 	params->rdsr_addr_nbytes = 0;
+
+	/*
+	 * The BFPT quad enable field is set to a reserved value so the quad
+	 * enable function is ignored by spi_nor_parse_bfpt(). Make sure we
+	 * disable it.
+	 */
+	nor->params->quad_enable = NULL;
 }
 
 struct spi_nor_fixups mt35xu512aba_fixups = {
