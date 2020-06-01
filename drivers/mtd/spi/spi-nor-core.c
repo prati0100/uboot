@@ -3094,7 +3094,7 @@ static void mt35xu512aba_post_sfdp_fixup(struct spi_nor *nor,
 	 * enable function is ignored by spi_nor_parse_bfpt(). Make sure we
 	 * disable it.
 	 */
-	nor->params->quad_enable = NULL;
+	params->quad_enable = NULL;
 }
 
 struct spi_nor_fixups mt35xu512aba_fixups = {

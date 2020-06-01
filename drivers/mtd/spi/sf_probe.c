@@ -153,6 +153,7 @@ int spi_flash_std_probe(struct udevice *dev)
 
 static int spi_flash_std_remove(struct udevice *dev)
 {
+#ifndef CONFIG_SPL_SPI_FLASH_TINY
 	struct spi_flash *flash;
 	int ret;
 
@@ -160,6 +161,7 @@ static int spi_flash_std_remove(struct udevice *dev)
 	ret = spi_nor_remove(flash);
 	if (ret)
 		return ret;
+#endif
 
 #if CONFIG_IS_ENABLED(SPI_FLASH_MTD)
 	spi_flash_mtd_unregister();
