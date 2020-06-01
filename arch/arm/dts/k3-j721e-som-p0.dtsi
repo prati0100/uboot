@@ -92,7 +92,7 @@
 		cdns,tsd2d-ns = <60>;
 		cdns,tchsh-ns = <60>;
 		cdns,tslch-ns = <60>;
-		cdns,read-delay = <4>;
+		cdns,read-delay = <0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 	};
