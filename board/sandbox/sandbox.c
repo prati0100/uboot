@@ -70,6 +70,8 @@ int board_init(void)
 	if (IS_ENABLED(CONFIG_LED))
 		led_default_state();
 
+	sandbox_set_enable_memio(true);
+
 	return 0;
 }
 
